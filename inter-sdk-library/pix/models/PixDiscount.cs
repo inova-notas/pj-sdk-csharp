@@ -29,10 +29,10 @@ public class PixDiscount : AbstractModel
     public List<FixedDateDiscount> FixedDateDiscounts { get; set; }
 
     /// <summary> Constructs a new Discount with specified values. </summary>
-    /// <param _name_="_modality_"> The modality of the discount </param>
-    /// <param _name_="_valuePercentage_"> The percentage value of the discount </param>
-    /// <param _name_="_fixedDateDiscounts_"> A list of fixed date discounts that may apply </param>
-    public PixDiscount(string? modality, string valuePercentage, List<FixedDateDiscount> fixedDateDiscounts) : base()
+    /// <param name="modality"> The modality of the discount </param>
+    /// <param name="valuePercentage"> The percentage value of the discount </param>
+    /// <param name="fixedDateDiscounts"> A list of fixed date discounts that may apply </param>
+    public PixDiscount(string modality, string valuePercentage, List<FixedDateDiscount> fixedDateDiscounts) : base()
     {
         Modality = modality;
         ValuePercentage = valuePercentage;

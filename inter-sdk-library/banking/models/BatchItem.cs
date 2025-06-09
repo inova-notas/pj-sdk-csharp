@@ -21,12 +21,8 @@ public class BatchItem : BatchPaymentUnit
     /// <summary> The status of the payment. </summary>
     [JsonPropertyName("status")]
     public string Status { get; set; }
-
-
-    /// <summary> Constructs a new DarfPaymentBatch with specified values. </summary>
-    /// <param name="detail"> The detail of the payment </param>
-    /// <param name="transactionId"> The transaction ID of the payment </param>
-    /// <param name="status"> The status of the payment </param>
+    
+    
     public BatchItem(string detail, string transactionId, string status, string cnpjOrCpf,
                        string revenueCode,
                        string dueDate,

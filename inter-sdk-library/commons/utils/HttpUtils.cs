@@ -15,7 +15,11 @@ public class HttpUtils {
         LastUrl = url;
         LastRequest = body;
         X509Certificate2Collection certificates = new X509Certificate2Collection();
-        certificates.Import(config.Certificate, config.Password, X509KeyStorageFlags.PersistKeySet);
+
+        var cert = X509CertificateLoader.LoadPkcs12FromFile(config.Certificate, config.Password,
+            X509KeyStorageFlags.PersistKeySet);
+        certificates.Add(cert);
+        
         string token = TokenUtils.GetToken(config, scope, certificates);
 
         InterSdk.LogInfo("{0} {1}", verb, url);

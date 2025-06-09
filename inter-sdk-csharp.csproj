@@ -5,7 +5,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <RootNamespace>inter_sdk_csharp</RootNamespace>
-    <Nullable>enable</Nullable>
   </PropertyGroup>  
 
   <ItemGroup>
