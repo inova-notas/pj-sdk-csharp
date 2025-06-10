@@ -23,57 +23,51 @@ public class HttpUtils {
         string token = TokenUtils.GetToken(config, scope, certificates);
 
         InterSdk.LogInfo("{0} {1}", verb, url);
-        HttpWebRequest req = (HttpWebRequest) WebRequest.Create(url);
-        req.ClientCertificates = certificates;
-        req.Method = verb;
-        req.Headers.Add("Authorization", "Bearer " + token);
-        if (config.Account != null && !config.Account.Equals("")) {
-            req.Headers.Add("x-conta-corrente", config.Account);
-        }
-        req.Headers.Add("x-inter-sdk", "csharp");
-        req.Headers.Add("x-inter-sdk-version", "1.0.0");
-
-        if (body != null && !body.Equals("")) {
-            if (config.Debug) {
-                InterSdk.LogInfo("REQUEST {0}", body);
-            }
-            req.ContentType = "application/json";
-            req.ContentLength = body.Length;
-            StreamWriter streamWriter = new StreamWriter(req.GetRequestStream());
-            streamWriter.Write(body);
-            streamWriter.Close();
-        }
-
-        string jsonResponse = "";
-        HttpWebResponse resp;
-        string err = null;
-        try {
-            resp = (HttpWebResponse) req.GetResponse();
-        } catch (WebException e) {
-            resp = (HttpWebResponse) e.Response;
-            if (resp.StatusCode == HttpStatusCode.TooManyRequests && config.RateLimitControl) {
-                Thread.Sleep(60000);
-                return CallVerb(config, url, scope, message, body, verb);
-            }
-            err = e.Message;
-        }
-
-        using (System.IO.Stream s = resp.GetResponseStream()) {
-            using (System.IO.StreamReader sr = new System.IO.StreamReader(s)) {
-                jsonResponse = sr.ReadToEnd();
-                if (config.Debug) {
-                    InterSdk.LogInfo("RESPONSE {0}", jsonResponse);
+        using (var handler = new HttpClientHandler()) {
+            handler.ClientCertificates.AddRange(certificates);
+            using (var client = new HttpClient(handler)) {
+                var request = new HttpRequestMessage(new HttpMethod(verb), url);
+                request.Headers.Add("Authorization", "Bearer " + token);
+                if (config.Account != null && !config.Account.Equals("")) {
+                    request.Headers.Add("x-conta-corrente", config.Account);
                 }
+                request.Headers.Add("x-inter-sdk", "csharp");
+                request.Headers.Add("x-inter-sdk-version", "1.0.0");
+                if (body != null && !body.Equals("")) {
+                    if (config.Debug) {
+                        InterSdk.LogInfo("REQUEST {0}", body);
+                    }
+                    request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+                }
+                string jsonResponse = "";
+                string err = null;
+                HttpResponseMessage resp = null;
+                try {
+                    resp = client.SendAsync(request).GetAwaiter().GetResult();
+                    jsonResponse = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                    if (config.Debug) {
+                        InterSdk.LogInfo("RESPONSE {0}", jsonResponse);
+                    }
+                    if ((int)resp.StatusCode == 429 && config.RateLimitControl) {
+                        Thread.Sleep(60000);
+                        return CallVerb(config, url, scope, message, body, verb);
+                    }
+                    if (!resp.IsSuccessStatusCode) {
+                        err = resp.ReasonPhrase;
+                    }
+                } catch (HttpRequestException e) {
+                    err = e.Message;
+                }
+                if (err != null) {
+                    Error error = BuildError(err, jsonResponse);
+                    throw new SdkException(err, error);
+                }
+                return jsonResponse;
             }
         }
-        if (err != null) {
-            Error error = buildError(err, jsonResponse);
-            throw new SdkException(err, error);
-        }
-        return jsonResponse;
     }
 
-    public static Error buildError(string err, string jsonResponse) {
+    static Error BuildError(string err, string jsonResponse) {
         if (!string.IsNullOrEmpty(jsonResponse)) {
             return JsonSerializer.Deserialize<Error>(jsonResponse)!;
         } else {

@@ -103,9 +103,7 @@ public class InterSdk {
     }
 
     private bool CheckCertificate(string certificado, string senha, ref DateTime notAfter) {
-        X509Certificate2Collection certificates = new X509Certificate2Collection();
-        certificates.Import(certificado, senha, X509KeyStorageFlags.PersistKeySet);
-        X509Certificate2 cert = certificates[0];
+        var cert = X509CertificateLoader.LoadPkcs12FromFile(certificado, senha, X509KeyStorageFlags.PersistKeySet);
         TimeSpan diff = cert.NotAfter.Subtract(DateTime.Now);
         if (diff.Days < Constants.DAYS_TO_EXPIRE) {
             notAfter = cert.NotAfter;
@@ -114,3 +112,4 @@ public class InterSdk {
         return true;
     }
 }
+

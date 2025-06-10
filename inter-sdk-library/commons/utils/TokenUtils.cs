@@ -36,45 +36,38 @@ public class TokenUtils {
         string url = UrlUtils.BuildUrl(config, Constants.URL_TOKEN);
 
         InterSdk.LogInfo("POST {0}", url);
-        HttpWebRequest req = (HttpWebRequest) WebRequest.Create(url);
-        req.ClientCertificates = certificates;
-        req.Method = "POST";
-        req.ContentType = "application/x-www-form-urlencoded";
+        using (var handler = new HttpClientHandler()) {
+            handler.ClientCertificates.AddRange(certificates);
+            using (var client = new HttpClient(handler)) {
+                var postData = new List<KeyValuePair<string, string>> {
+                    new KeyValuePair<string, string>("client_id", config.ClientId),
+                    new KeyValuePair<string, string>("client_secret", config.ClientSecret),
+                    new KeyValuePair<string, string>("grant_type", "client_credentials"),
+                    new KeyValuePair<string, string>("scope", scope)
+                };
+                var content = new FormUrlEncodedContent(postData);
+                HttpResponseMessage resp;
+                try {
+                    resp = client.PostAsync(url, content).GetAwaiter().GetResult();
+                } catch (HttpRequestException e) {
+                    if (e.StatusCode == HttpStatusCode.TooManyRequests && config.RateLimitControl) {
+                        Thread.Sleep(60000);
+                        return makeTokenRequest(config, scope, certificates);
+                    }
+                    throw;
+                }
 
-        string postData = string.Format("client_id={0}&client_secret={1}&grant_type=client_credentials&scope={2}", 
-            config.ClientId, config.ClientSecret, scope);
-        byte[] postBytes = Encoding.UTF8.GetBytes(postData);
-        req.ContentLength = postBytes.Length;
-
-        Stream postStream = req.GetRequestStream();
-        postStream.Write(postBytes, 0, postBytes.Length);
-        postStream.Flush();
-        postStream.Close();    
-    
-        HttpWebResponse resp;
-        try {
-            resp = (HttpWebResponse) req.GetResponse();
-        } catch (WebException e) {
-            resp = (HttpWebResponse) e.Response;
-            if (resp.StatusCode == HttpStatusCode.TooManyRequests && config.RateLimitControl) {
-                Thread.Sleep(60000);
-                return makeTokenRequest(config, scope, certificates);
-            }
-        }
-
-        GetTokenResponse token = null;
-        InterSdk.LogInfo("HTTPSTATUS {0}", resp.StatusCode.ToString());
-        using (System.IO.Stream s = resp.GetResponseStream()) {
-            using (System.IO.StreamReader sr = new System.IO.StreamReader(s)) {
-                string jsonResponse = sr.ReadToEnd();
-                int code = (int) resp.StatusCode;
+                GetTokenResponse token = null;
+                InterSdk.LogInfo("HTTPSTATUS {0}", resp.StatusCode.ToString());
+                string jsonResponse = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                int code = (int)resp.StatusCode;
                 if (config.Debug && code >= 400) {
                     InterSdk.LogInfo("RESPONSE {0}", jsonResponse);
                 }
                 token = JsonSerializer.Deserialize<GetTokenResponse>(jsonResponse)!;
+                token.CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                return token;
             }
         }
-        token.CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        return token;
     }
 }
